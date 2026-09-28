@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signature
+  annotations:
+    policies.kyverno.io/title: Verify Image Signatures
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      Verifies container images are signed with Cosign before admission.
+      Prevents supply chain attacks by ensuring only trusted images run.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-signature
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces: ["production"]
+      verifyImages:
+        - imageReferences:
+            - "your-registry/*"
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/Rekt-Dev/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

@@ -1,0 +1,79 @@
+# Custom Falco rules for production workload monitoring
+# Deploy via Helm: helm install falco falcosecurity/falco --set-file falco.rules_file=custom-rules.yaml
+
+- rule: Shell Spawned in Container
+  desc: Detects a shell being spawned inside a running container — common indicator of breakout attempt
+  condition: >
+    spawned_process and
+    container and
+    shell_procs and
+    not proc.pname in (shell_procs) and
+    not container.image.repository in (trusted_images)
+  output: >
+    Shell spawned in container
+    (user=%user.name container=%container.name image=%container.image.repository
+    shell=%proc.name parent=%proc.pname cmdline=%proc.cmdline)
+  priority: WARNING
+  tags: [container, shell, cks]
+
+- rule: Sensitive File Read in Container
+  desc: Detects reads of sensitive files like /etc/shadow, /etc/passwd from inside a container
+  condition: >
+    open_read and
+    container and
+    fd.name in (/etc/shadow, /etc/passwd, /etc/sudoers, /root/.ssh/authorized_keys, /root/.ssh/id_rsa)
+  output: >
+    Sensitive file read in container
+    (user=%user.name file=%fd.name container=%container.name image=%container.image.repository)
+  priority: ERROR
+  tags: [container, filesystem, cks]
+
+- rule: Unexpected Outbound Connection
+  desc: Detects outbound network connections from containers to unexpected destinations
+  condition: >
+    outbound and
+    container and
+    not fd.sport in (80, 443, 53) and
+    not container.image.repository in (trusted_images)
+  output: >
+    Unexpected outbound connection from container
+    (user=%user.name container=%container.name image=%container.image.repository
+    connection=%fd.name)
+  priority: WARNING
+  tags: [network, container, cks]
+
+- rule: Container Running as Root
+  desc: Alerts when a container process runs as UID 0
+  condition: >
+    spawned_process and
+    container and
+    user.uid = 0 and
+    not container.image.repository in (trusted_images)
+  output: >
+    Process running as root in container
+    (user=%user.name uid=%user.uid container=%container.name image=%container.image.repository
+    cmdline=%proc.cmdline)
+  priority: WARNING
+  tags: [container, privilege, cks]
+
+- rule: Crypto Mining Detected
+  desc: Detects known crypto mining process names and network patterns
+  condition: >
+    spawned_process and
+    container and
+    (proc.name in (xmrig, minerd, cpuminer, ethminer) or
+     proc.cmdline contains "stratum+tcp" or
+     proc.cmdline contains "mining.pool")
+  output: >
+    Crypto mining process detected in container
+    (proc=%proc.name cmdline=%proc.cmdline container=%container.name)
+  priority: CRITICAL
+  tags: [container, cryptomining, cks]
+
+- list: trusted_images
+  items:
+    - your-registry/api
+    - your-registry/frontend
+
+- list: shell_procs
+  items: [bash, sh, zsh, fish, dash]

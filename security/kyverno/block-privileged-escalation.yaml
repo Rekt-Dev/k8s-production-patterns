@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-privilege-escalation
+  annotations:
+    policies.kyverno.io/title: Block Privilege Escalation
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      Prevents containers from gaining more privileges than their parent process.
+      Part of the system-hardening policy set.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: block-privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "allowPrivilegeEscalation must be set to false."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false

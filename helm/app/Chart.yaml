@@ -1,0 +1,12 @@
+apiVersion: v2
+name: app
+description: Production-grade Helm chart for a multi-tier web application
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - production
+  - security
+maintainers:
+  - name: rekt-dev
